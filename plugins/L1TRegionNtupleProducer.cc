@@ -232,7 +232,7 @@ void L1TRegionNtupleProducer::analyze( const Event& evt, const EventSetup& es )
   
   //Each region is 0.087 x 4 in eta and 0.087 x 4 in phi
   for(auto seed : clusters){
-    for(auto cluster_iter : clusters){
+   for(auto cluster_iter : clusters){
       /// test different sizes for distance parameter in the future
       if((fabs(seed.eta - cluster_iter.eta)< 0.087*4)&&fabs(seed.phi-cluster_iter.phi)<0.0874){
 	///this is a neighboring cluster
@@ -263,8 +263,8 @@ void L1TRegionNtupleProducer::analyze( const Event& evt, const EventSetup& es )
 	// statements that set the direction of the neighboring cluster,
 	// and sets whether or not it is the maxCluster 
 	
-      }
     }
+   }
   }
   
 
