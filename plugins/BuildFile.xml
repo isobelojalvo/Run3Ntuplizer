@@ -47,7 +47,7 @@
 <use   name="root"/>
 <use   name="L1Trigger/L1TCaloLayer1"/>
 <use   name="L1Trigger/L1TCaloSummary"/>
-<use   name="L1Trigger/Stage3Ntuplizer"/>
-<library   file="*.cc" name="L1TriggerStage3NtuplizerPlugins">
+<use   name="L1Trigger/Run3Ntuplizer"/>
+<library   file="*.cc" name="L1TriggerRun3NtuplizerPlugins">
   <flags   EDM_PLUGIN="1"/>
 </library>

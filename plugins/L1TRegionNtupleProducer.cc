@@ -33,57 +33,59 @@ struct cluster{
   float eta;
   float phi;
   
-  float topN_pt;
-  float topN_eta;
-  float topN_phi;
-  //....
-
-
-  //left neighbor
+  float upN_pt;
+  float upN_eta;
+  float upN_phi;
+  float downN_pt;
+  float downN_eta; 
+  float downN_phi;
   float leftN_pt;
   float leftN_eta;
   float leftN_phi;
+  float rightN_pt;
+  float rightN_eta;
+  float rightN_phi;
 
   float id;
 
-  //tells us if the centra seed for this cluster is the maximum in the region
+  //tells us if the central seed for this cluster is the maximum in the region
   float maxCluster;
 };
 
 // Tunable Distance Parameter
-const int R = 1;
+//const int R = 1;
 // Loop over all regions, no self-comparison, no duplicates
-void L1TRegionNtupleProducer::antikt(){
-  struct delta {
-    float dist;
-    float bist;
-    float etai;
-    float etaj;
-    float phii;
-    float phij;
-    bool cluster;
-  };
+//void L1TRegionNtupleProducer::antikt(){
+//  struct delta {
+//    float dist;
+//    float bist;
+//    float etai;
+//    float etaj;
+//    float phii;
+//    float phij;
+//    bool cluster;
+//  };
 
-  int max =100;
-    for (int i=0; i<max; i++) {
-      for (int j=0; j!=i && j>i; j++) {
-	// Region Distance Metric
-	float dist = std::min(pow(vRegionEt[i],-2.0),pow(vRegionEt[j],-2.0))*sqrt(pow((vRegionEta[i]-vRegionEta[j]),2.0)+pow((vRegionPhi[i]-vRegionPhi[j]),2.0))/pow(R,2);
-	// Beam Distance Metric
-	float bist = std::min(pow(vRegionEt[i],-2.0),pow(vRegionEt[j],-2.0));
-	// Set vector of parameters of each pair
-	std::vector<delta> Delta;
-	
-	Delta[i].dist = dist;
-	Delta[i].bist = bist;
-	Delta[i].cluster = dist < bist;
-	Delta[i].etai = vRegionEta[i];
-	Delta[i].etaj = vRegionEta[j];
-	Delta[i].phii = vRegionPhi[i];
-	Delta[i].phij = vRegionPhi[j];
-    }
-  }
-};
+//   int max =100;
+//    for (int i=0; i<max; i++) {
+//      for (int j=0; j!=i && j>i; j++) {
+//	// Region Distance Metric
+//	float dist = std::min(pow(vRegionEt[i],-2.0),pow(vRegionEt[j],-2.0))*sqrt(pow((vRegionEta[i]-vRegionEta[j]),2.0)+pow((vRegionPhi[i]-vRegionPhi[j]),2.0))/pow(R,2);
+//	// Beam Distance Metric
+//	float bist = std::min(pow(vRegionEt[i],-2.0),pow(vRegionEt[j],-2.0));
+//	// Set vector of parameters of each pair
+//	std::vector<delta> Delta;
+//	
+//	Delta[i].dist = dist;
+//	Delta[i].bist = bist;
+//	Delta[i].cluster = dist < bist;
+//	Delta[i].etai = vRegionEta[i];
+//	Delta[i].etaj = vRegionEta[j];
+//	Delta[i].phii = vRegionPhi[i];
+//	Delta[i].phij = vRegionPhi[j];
+//    }
+//  }
+//};
   
  
 L1TRegionNtupleProducer::L1TRegionNtupleProducer( const ParameterSet & cfg ) :
@@ -157,7 +159,7 @@ void L1TRegionNtupleProducer::analyze( const Event& evt, const EventSetup& es )
   vRegionTau.clear();
   vRegionEG.clear();
 
-  vector<cluster> clusters;
+  std::vector<cluster> clusters;
 
   UCTGeometry g;
   //************* Get Regions and make region plots
@@ -230,7 +232,7 @@ void L1TRegionNtupleProducer::analyze( const Event& evt, const EventSetup& es )
   
   //Each region is 0.087 x 4 in eta and 0.087 x 4 in phi
   for(auto seed : clusters){
-    for(auto cluster_iter : clusters){
+   for(auto cluster_iter : clusters){
       /// test different sizes for distance parameter in the future
       if((fabs(seed.eta - cluster_iter.eta)< 0.087*4)&&fabs(seed.phi-cluster_iter.phi)<0.0874){
 	///this is a neighboring cluster
@@ -238,20 +240,37 @@ void L1TRegionNtupleProducer::analyze( const Event& evt, const EventSetup& es )
 	  seed.leftN_pt = cluster_iter.pt;
 	  seed.leftN_pt = cluster_iter.eta;
 	  seed.leftN_pt = cluster_iter.phi;
+	} 
+	if((seed.eta - cluster_iter.eta) < 0){
+	  seed.rightN_pt = cluster_iter.pt;
+	  seed.rightN_pt = cluster_iter.eta;
+	  seed.rightN_pt = cluster_iter.phi;
+	}
+	if((seed.phi - cluster_iter.phi) > 0){
+	  seed.downN_pt = cluster_iter.pt;
+	  seed.downN_pt = cluster_iter.eta;
+	  seed.downN_pt = cluster_iter.phi;
+	}
+	if((seed.phi - cluster_iter.phi) < 0){
+	  seed.upN_pt = cluster_iter.pt;
+	  seed.upN_pt = cluster_iter.eta;
+	  seed.upN_pt = cluster_iter.phi;
+	}
 
 	  if(cluster_iter.pt > seed.pt)
 	    cluster_iter.maxCluster = 0;
 	}
-	// do this for all neighbors
+	// statements that set the direction of the neighboring cluster,
+	// and sets whether or not it is the maxCluster 
 	
-      }
     }
+   }
   }
   
 
 
 
-}
+
 
 
   
