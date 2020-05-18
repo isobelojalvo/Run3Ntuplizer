@@ -7,7 +7,7 @@ cmsenv
 git cms-init
 git cms-merge-topic isobelojalvo:run3-dev-boosted-$CMSSW_VERSION
 cd L1Trigger
-git clone -b run3-dev-boosted-$CMSSW_VERSION git@github.com:isobelojalvo/L1TCaloSummary.git
+git clone -b isobelojalvo-dev-boosted-$CMSSW_VERSION git@github.com:isobelojalvo/L1TCaloSummary.git
 git clone --branch 2020_Apr_5-boosted git@github.com:isobelojalvo/Run3Ntuplizer.git
 cd ..
 scram b -j 8
