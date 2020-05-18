@@ -75,9 +75,15 @@
 
 #include "L1Trigger/L1TCaloLayer1/src/L1TCaloLayer1FetchLUTs.hh"
 
+#include <iostream>
+#include <string>
+#include <bitset>
+#include <fstream>
+
 using namespace l1tcalo;
 using namespace l1extra;
 using namespace std;
+
 
 //
 // class declaration
@@ -94,15 +100,15 @@ private:
   void analyze(const edm::Event& evt, const edm::EventSetup& es);      
   virtual void beginJob() override;
   virtual void endJob() override;
-
   virtual void beginRun(edm::Run const&, edm::EventSetup const&) override;
   //virtual void endRun(edm::Run const&, edm::EventSetup const&) override;
   //virtual void beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
   //virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
 
   void print();
-
+  bitset<12> mergeBits(bitset<12> bitsin);
   // ----------member data ---------------------------
+  ofstream myfile;
   edm::InputTag genSrc_;
   edm::EDGetTokenT<EcalTrigPrimDigiCollection> ecalTPSource;
   std::string ecalTPSourceLabel;
@@ -224,6 +230,8 @@ BoostedJetStudies::BoostedJetStudies(const edm::ParameterSet& iConfig) :
   jetSrcAK8_( consumes<vector<pat::Jet> >(iConfig.getParameter<edm::InputTag>("recoJetsAK8"))),
   genSrc_((        iConfig.getParameter<edm::InputTag>( "genParticles")))
 {
+  myfile.open ("goodJetEvents.txt");
+
   std::vector<double> pumLUTData;
   char pumLUTString[10];
   for(uint32_t pumBin = 0; pumBin < nPumBins; pumBin++) {
@@ -284,6 +292,7 @@ BoostedJetStudies::BoostedJetStudies(const edm::ParameterSet& iConfig) :
 }
 
 BoostedJetStudies::~BoostedJetStudies() {
+  myfile.close();
   if(layer1 != 0) delete layer1;
   if(summaryCard != 0) delete summaryCard;
 }
@@ -503,15 +512,93 @@ void BoostedJetStudies::analyze( const edm::Event& evt, const edm::EventSetup& e
     eta = g.getUCTTowerEta(object->iEta());
     phi = g.getUCTTowerPhi(object->iPhi());
     fJetCands->push_back(L1JetParticle(math::PtEtaPhiMLorentzVector(pt, eta, phi, mass), L1JetParticle::kForward));
+    }
+  */
+
+
+  Handle<vector<pat::Jet> > jetsAK8;
+
+  if(evt.getByToken(jetSrcAK8_, jetsAK8)){//Begin Getting Reco Jets
+
+    for (const pat::Jet &jet : *jetsAK8) {
+      //recoJetAK8_pt->Fill( jetAK8.pt() );
+      //recoJetAK8_eta->Fill( jetAK8.eta() );
+      //recoJetAK8_phi->Fill( jetAK8.phi() );
+      //get rid of the cruft for analysis to save disk space
+      if(jet.pt() < recoPt_ ) 
+	continue;
+
+      if(jet.jetFlavourInfo().getbHadrons().size()<2)
+	continue;
+
+      if(jet.subjets("SoftDropPuppi").size()!=2)
+	continue;
+      
+      std::cout<<"Found a jet with two subjets and two bhadrons"<<std::endl;
+
+      myfile << run << ":" <<lumi <<":"<<event<<std::endl;
+
+      goodJetsAK8.push_back(jet);
+      
+    }
   }
-*/
+  else
+    cout<<"Error getting AK8 jets"<<std::endl;
+
+
+    //std::cout<<"AK8 jets size: "<<jetsAK8->size()<<std::endl;
+
+  bitset<12> goodPattern5(string("001110111110"));
+
   std::list<UCTObject*> boostedJetObjs = summaryCard->getBoostedJetObjs();
   for(std::list<UCTObject*>::const_iterator i = boostedJetObjs.begin(); i != boostedJetObjs.end(); i++) {
     const UCTObject* object = *i;
     pt = ((double) object->et()) * caloScaleFactor;
     eta = g.getUCTTowerEta(object->iEta());
     phi = g.getUCTTowerPhi(object->iPhi());
+
+    std::cout<<"printing the tower ET:"<<std::endl;
+    for(uint32_t iPhi = 0; iPhi < 12; iPhi++){
+      for(uint32_t iEta = 0; iEta < 12; iEta++) {
+	std::cout<< object->boostedJetTowers()[iEta+iPhi*12]<<setw(20)<<" ";
+      }
+      std::cout<<std::endl;
+    }
+
+    for(auto recoJet : goodJetsAK8){
+      if(reco::deltaR(eta,phi, recoJet.eta(),recoJet.phi())<0.4){
+
+	std::string etastring = object->activeTowerEta().to_string<char,std::string::traits_type,std::string::allocator_type>();
+	std::string phistring = object->activeTowerPhi().to_string<char,std::string::traits_type,std::string::allocator_type>();
+	
+	std::cout<<"activeTowerEta: "<< etastring <<std::endl;
+
+	bitset<12> bits_eta = object->activeTowerEta();
+	bitset<12> bits_phi = object->activeTowerPhi();
+	bitset<12> merged_bits_eta = mergeBits(bits_eta);
+
+	std::cout<<"merged bits_eta: "<<merged_bits_eta.to_string<char,std::string::traits_type,std::string::allocator_type>()<<std::endl;
+	std::cout<<std::endl;
+	/*
+	std::cout<<"activeTowerPhi: "<< phistring<<std::endl;
+
+	for(unsigned int i = 0; i < 11; i++){
+	  bitset<12> mask;
+	  mask[i] = 1;
+	  if(bits_phi[i+1]&bits_phi[i]==1)
+	    merged_bits_phi[i] = bits_phi>>1;
+	}
+	std::cout<<"merged bits_phi: "<<bits_phi.to_string<char,std::string::traits_type,std::string::allocator_type>()<<std::endl;
+	*/
+	if(object->activeTowerEta()==goodPattern5||object->activeTowerPhi()==goodPattern5 ){
+	  std::cout<<"Found subjets!!"<<std::endl;
+	}
+
+      }
+    }
+
     bJetCands->push_back(L1JetParticle(math::PtEtaPhiMLorentzVector(pt, eta, phi, mass), L1JetParticle::kCentral));// using kCentral for now, need a new type
+    
   }
 
   /*
@@ -567,27 +654,95 @@ void BoostedJetStudies::analyze( const edm::Event& evt, const edm::EventSetup& e
   else
     cout<<"Error getting reco jets"<<std::endl;
 
-  Handle<vector<pat::Jet> > jetsAK8;
 
-  if(evt.getByToken(jetSrcAK8_, jetsAK8)){//Begin Getting Reco Jets
-    for (const pat::Jet &jetAK8 : *jetsAK8) {
-      //recoJetAK8_pt->Fill( jetAK8.pt() );
-      //recoJetAK8_eta->Fill( jetAK8.eta() );
-      //recoJetAK8_phi->Fill( jetAK8.phi() );
-      //get rid of the cruft for analysis to save disk space
-      if(jetAK8.pt() > recoPt_ ) {
-	goodJetsAK8.push_back(jetAK8);
+  std::list<UCTObject*> l1JetsSorted;
+
+  /*
+  for(std::list<UCTObject*>::const_iterator i = boostedJetObjs.begin(); i != boostedJetObjs.end(); i++) {
+    const UCTObject* object = *i;
+
+    //for(int j = 0; j < l1JetsSorted.size(); j++){
+    for(std::vector<UCTObject>::const_iterator j =  l1JetsSorted.begin(); j != l1JetsSorted.end(); j++){
+      //if(object->et() < j->et() ){
+      //l1JetsSorted.insert(j,*object);
+      //break;
+      //}
+      //l1JetsSorted.push_back(*object);
+      
+    }
+
+  }
+  */
+  int k = 0;
+  for(std::list<UCTObject*>::const_iterator i = boostedJetObjs.begin(); i != boostedJetObjs.end(); i++) {
+    const UCTObject* object = *i;
+
+    std::cout<< k<<" boosted jet pt: "<< object->et()<<std::endl;
+    k++;
+    /*
+    for(std::list<UCTObject*>::iterator j =  l1JetsSorted.begin(); j != l1JetsSorted.end(); j++){
+    const UCTObject* object2 = *j;
+      if(object->et() < object2->et() ){
+	//l1JetsSorted.insert(j,*object);
+	break;
+      }
+      // if the jet doesn't belong in the middle of the vector then put it at the end
+      if(j!=l1JetsSorted.end() && (next(j))==l1JetsSorted.end()){
+	l1JetsSorted.push_back(object);
       }
     }
+
+
+    }
+    */
   }
-  else
-    cout<<"Error getting AK8 jets"<<std::endl;
-  std::cout<<"AK8 jets size: "<<jetsAK8->size()<<std::endl;
+  //std::sort(l1JetsSorted.begin(),l1JetsSorted.end(),compareByPtJets);
+
+  //boostedJetObjs sort these guys by pt
+
+
+
   for(auto jet:goodJetsAK8){
     std::cout<<"N BHadrons: "<< jet.jetFlavourInfo().getbHadrons().size()<<std::endl;
+
+    if(jet.jetFlavourInfo().getbHadrons().size()<2)
+      continue;
+
+    if(jet.subjets("SoftDropPuppi").size()!=2)
+      continue;
+
+    std::cout<<"Found a jet with two subjets and two bhadrons"<<std::endl;
+
+    int i = 0;
+    l1extra::L1JetParticle l1Jet;
+    //for(std::list<UCTObject*>::const_iterator i = boostedJetObjs.begin(); i != boostedJetObjs.end(); i++) {
+    //const UCTObject test = *i;
+    /*
+    if(l1JetsSorted.size() > 0){
+      for(auto l1jet : l1JetsSorted){
+        TLorentzVector temp;
+        temp.SetPtEtaPhiE(l1jet.pt(),l1jet.eta(),l1jet.phi(),l1jet.et());
+        l1Jets->push_back(temp);
+        if(reco::deltaR(jet, recoJet_1)<0.4 && foundL1Jet_1 == 0 ){
+          l1Pt_1  = l1jet.pt();
+          l1Eta_1 = l1jet.eta();
+          l1Phi_1 = l1jet.phi();
+          l1NthJet_1 = i;
+          l1NTau_1 = nTausInfo[i];
+          foundL1Jet_1 = 1;
+	  std::cout<<"bitset pattern Eta: "<< jet.activeTowerEta()<<std::endl;
+	  std::cout<<"bitset pattern Phi: "<< jet.activeTowerPhi()<<std::endl;
+	  
+        }
+        i++;
+      }
+      }*/
+  }
+
+
     //take more variables from here: https://github.com/gouskos/HiggsToBBNtupleProducerTool/blob/opendata_80X/NtupleAK8/src/FatJetInfoFiller.cc#L215-L217
     // https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideBTagMCTools
-  }
+
 
   //Match to boosted jets and see if we can match subjettiness functions...
   //for(std::list<UCTObject*>::const_iterator i = boostedJetObjs.begin(); i != boostedJetObjs.end(); i++) {
@@ -621,6 +776,60 @@ void BoostedJetStudies::print() {
   std::cout << *layer1;
 }
 
+
+/* The goal of this function is to take a bitwise pattern and merge it such that 
+ * there are no patterns that look like 11 or 00. 
+ * Example: 010010  -> 001010
+ *          111111  -> 000001
+ *          111110  -> 000010
+ *          000001  -> 000001
+ *          001100  -> 000010
+ *          110011  -> 000101
+ *          0011001100 -> 0000001010
+ */
+bitset<12> BoostedJetStudies::mergeBits(bitset<12> bitsin){
+  bitset<12> finalbits = 0x0;
+  // initialize bitmasks
+  bitset<12> upper_mask = 0x1FFE;
+  bitset<12> lower_mask = 0x0; //default all 0
+  int i = 0;
+  bitset<12> one = (0x1);
+  // compare position j to j+1 so only loop at most 11 times.
+  for(int j = 0; j<11; j++){
+    std::cout<<"j: "<<j<<std::endl;
+    if(bitsin[i+1]==bitsin[i]){
+      bitset<12> x = bitsin & upper_mask;
+      std::cout<<" bitsin & upper_mask = "<<bitsin.to_string<char,std::string::traits_type,std::string::allocator_type>()<<"&"<<
+ 	                                upper_mask.to_string<char,std::string::traits_type,std::string::allocator_type>()<<" = "<<
+	                                         x.to_string<char,std::string::traits_type,std::string::allocator_type>()<< std::endl;
+      x = x>>1;
+
+      std::cout<<"x = x>>1: "<<x.to_string<char,std::string::traits_type,std::string::allocator_type>()<< std::endl;
+
+      std::cout<<"finalbits = (finalbits & lower_mask)|x = ("<<finalbits.to_string<char,std::string::traits_type,std::string::allocator_type>();
+      finalbits = (finalbits & lower_mask)|x;
+
+
+      std::cout<<" & "<< lower_mask.to_string<char,std::string::traits_type,std::string::allocator_type>()
+	       <<")|"<<           x.to_string<char,std::string::traits_type,std::string::allocator_type>()
+	       <<" = "<<  finalbits.to_string<char,std::string::traits_type,std::string::allocator_type>() <<std::endl;
+
+      //iterate upper mask
+      upper_mask = upper_mask << 1;      
+      std::cout<<"upper_mask << 1 = "<<upper_mask.to_string<char,std::string::traits_type,std::string::allocator_type>()<<std::endl;
+      //iterate lower_mask (add a 1)
+      lower_mask = (lower_mask << 1) | one;      
+      std::cout<<"upper_mask << 1 = "<<lower_mask.to_string<char,std::string::traits_type,std::string::allocator_type>()<<std::endl;
+    }
+    else{
+      //move on to next position
+      i++;
+    }
+    
+  }
+  
+  return finalbits;
+}
 
 void BoostedJetStudies::createBranches(TTree *tree){
     tree->Branch("run",     &run,     "run/I");
