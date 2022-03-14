@@ -18,6 +18,13 @@
 //#include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 //MINIAOD
 
+struct genP4Cand{
+  reco::Candidate::LorentzVector p4;
+  bool isTauH;
+  int pdgId;
+  int decayMode;
+};
+
 struct genVisTau{
   reco::Candidate::LorentzVector p4;
   int decayMode;

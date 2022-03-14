@@ -26,6 +26,8 @@
 #include <vector>
 #include <tgmath.h>
 
+
+
 //Gets visible 4-momentum of a particle from list of daughters
 reco::Candidate::LorentzVector GetVisibleP4(std::vector<const reco::GenParticle*>& daughters)
 {
